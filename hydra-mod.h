@@ -39,10 +39,15 @@ extern void hydra_dump_data(unsigned char *buf, int len, char *text);
 extern int hydra_memsearch(char *haystack, int hlen, char *needle, int nlen);
 extern char *hydra_strrep(char *string, char *oldpiece, char *newpiece);
 
+extern char *hydra_get_next_password_sub(char *nextbuf, char *login, char *pwd);
+
+
 #ifdef HAVE_PCRE
 int hydra_string_match(char *str, const char *regex);
 #endif
 char *hydra_string_replace(const char *string, const char *substr, const char *replacement);
+
+void inplace_reverse(char * str);
 
 int debug;
 int verbose;

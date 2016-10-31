@@ -308,6 +308,10 @@ int prefer_ipv6 = 0, conwait = 0, loop_cnt = 0, fck = 0, options = 0, killed = 0
 int child_head_no = -1, child_socket;
 int total_redo_count = 0;
 
+//char **alloclist = NULL;
+//int alloccount = 0;
+char *subpass = NULL;
+
 // moved for restore feature
 int process_restore = 0, dont_unlink;
 char *login_ptr = NULL, *pass_ptr = "", *csv_ptr = NULL, *servers_ptr = NULL;
@@ -1311,6 +1315,8 @@ int hydra_spawn_head(int head_no, int target_no) {
         free(login_ptr);
       if (hydra_options.passfile != NULL)
         free(pass_ptr);
+//        for (int i = 0; i < alloccount; i ++) free(alloclist[i]);
+//        free(alloclist);
       if (hydra_options.colonfile != NULL && hydra_options.colonfile != empty_login)
         free(csv_ptr);
       //    we must keep servers_ptr for cmdlinetarget to work
@@ -2093,7 +2099,13 @@ int hydra_send_next_pair(int target_no, int head_no) {
       snpbuflen = MAXLINESIZE - 2;
     else
       snpbuflen = strlen(hydra_heads[head_no]->current_login_ptr) + 1;
-    strncpy(snpbuf + snpbuflen, hydra_heads[head_no]->current_pass_ptr, MAXLINESIZE - snpbuflen - 1);
+      
+      size_t bufsize = strlen(hydra_heads[head_no]->current_login_ptr) + strlen(hydra_heads[head_no]->current_pass_ptr) + 1;
+      
+      subpass = (char *)malloc(bufsize);
+
+     hydra_get_next_password_sub(subpass, hydra_heads[head_no]->current_login_ptr, hydra_heads[head_no]->current_pass_ptr);
+    strncpy(snpbuf + snpbuflen, subpass, MAXLINESIZE - snpbuflen - 1);
     if (strlen(hydra_heads[head_no]->current_pass_ptr) > MAXLINESIZE - snpbuflen - 1)
       snpbuflen += MAXLINESIZE - snpbuflen - 1;
     else
@@ -2103,23 +2115,26 @@ int hydra_send_next_pair(int target_no, int head_no) {
       hydra_targets[target_no]->sent++;
     } else if (debug)
       printf("[DEBUG] send_next_pair_redo done %d, pass_state %d, clogin %s, cpass %s, tlogin %s, tpass %s, is_redo %d\n",
-             snpdone, hydra_targets[target_no]->pass_state, hydra_heads[head_no]->current_login_ptr, hydra_heads[head_no]->current_pass_ptr, hydra_targets[target_no]->login_ptr,
+             snpdone, hydra_targets[target_no]->pass_state, hydra_heads[head_no]->current_login_ptr, subpass, hydra_targets[target_no]->login_ptr,
              hydra_targets[target_no]->pass_ptr, snp_is_redo);
     //hydra_dump_data(snpbuf, snpbuflen, "SENT");
+    
     fck = write(hydra_heads[head_no]->sp[0], snpbuf, snpbuflen);
     if (fck < snpbuflen) {
       if (verbose)
         fprintf(stderr, "[ERROR] can not write to child %d, restarting it ...\n", head_no);
       hydra_increase_fail_count(target_no, head_no);
       loop_cnt = 0;
+        free(subpass);
       return 0;                 // not prevent disabling it, if its needed its already done in the above line
     }
     if (debug || hydra_options.showAttempt) {
       printf("[%sATTEMPT] target %s - login \"%s\" - pass \"%s\" - %lu of %lu [child %d] (%d/%d)\n",
              hydra_targets[target_no]->redo_state ? "REDO-" : snp_is_redo ? "RE-" : "", hydra_targets[target_no]->target, hydra_heads[head_no]->current_login_ptr,
-             hydra_heads[head_no]->current_pass_ptr, hydra_targets[target_no]->sent, hydra_brains.todo + hydra_targets[target_no]->redo, head_no, hydra_targets[target_no]->redo_state ? hydra_targets[target_no]->redo_state - 1 : 0, hydra_targets[target_no]->redo);
+             subpass, hydra_targets[target_no]->sent, hydra_brains.todo + hydra_targets[target_no]->redo, head_no, hydra_targets[target_no]->redo_state ? hydra_targets[target_no]->redo_state - 1 : 0, hydra_targets[target_no]->redo);
     }
     loop_cnt = 0;
+      free(subpass);
     return 0;
   }
   loop_cnt = 0;
@@ -3374,6 +3389,8 @@ int main(int argc, char *argv[]) {
           exit(-1);
         }
         pass_ptr = malloc(hydra_brains.sizepass + hydra_brains.countpass + 8);
+//          alloclist = (char **)malloc(sizeof(char *) * hydra_brains.countpass);
+          
         if (pass_ptr == NULL)
           bail("Could not allocate enough memory for password file data");
         memset(pass_ptr, 0, hydra_brains.sizepass + hydra_brains.countpass + 8);

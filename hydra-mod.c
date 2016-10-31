@@ -662,6 +662,110 @@ char *hydra_get_next_password() {
   return ptr;
 }
 
+char *hydra_get_next_password_sub(char *nextbuf, char *login, char *pwd) {
+    /* %user% %resu% %user:b=>8% */
+    
+    char *tok = NULL, *tok1 = NULL;
+    int pos[2], state = 0;
+    char replace[2] = {0};
+    const char delim = '%';
+    char *loginbuf = NULL, *pwdbuf = NULL;
+    
+    size_t bufsize = strlen(login) + strlen(pwd) + 1;
+    
+    loginbuf = (char *)malloc(strlen(login) + 1);
+    pwdbuf = (char *)malloc(strlen(pwd) + 1);
+    
+    memset(nextbuf, 0, bufsize);
+    
+    if (nextbuf == NULL || loginbuf == NULL || pwdbuf == NULL) {
+        goto clean;
+    }
+    
+    // init
+    strncpy(loginbuf, login, strlen(login) + 1);
+    strncpy(pwdbuf, pwd, strlen(pwd) + 1);
+    
+//    printf("orig: %s\t%s\n", login, pwd);
+    
+    for (int i = 0; i < strlen(pwdbuf); i ++) {
+        if (state == 2) break;
+        if (pwdbuf[i] == delim) {
+            pos[state] = i;
+            state ++;
+        }
+    }
+    
+    if (state < 2) {
+        strncpy(nextbuf, pwdbuf, bufsize);
+    } else {
+        pwdbuf[pos[1]] = 0;
+        tok = pwdbuf + pos[0] + 1;
+//        printf("sub: %s\n", tok);
+        
+        pwdbuf[pos[0]] = 0;
+        if (pos[0] > 0) strncat(nextbuf, pwdbuf, bufsize);
+        
+        if (!strncmp(tok, "user", strlen(tok))) {
+            strncat(nextbuf, loginbuf, bufsize - strlen(nextbuf));
+        } else if (!strncmp(tok, "resu", strlen(tok))) {
+            inplace_reverse(loginbuf);
+            strncat(nextbuf, loginbuf, bufsize - strlen(nextbuf));
+        } else {
+            if (tok == strnstr(tok, "user:", strlen(tok))) {
+                tok += 5;
+                tok1 = tok + 1;
+                if (tok1 == strnstr(tok1, "=>", strlen(tok1))) {
+//                    printf("replace detected.\n");
+                    replace[0] = *tok;
+                    replace[1] = *(tok+8);
+//                    printf("replace %c to %c\n", replace[0], replace[1]);
+                    for (int i = 0; i < strlen(loginbuf); i ++) {
+                        if (loginbuf[i] == replace[0]) loginbuf[i] = replace[1];
+                    }
+                    strncat(nextbuf, loginbuf, bufsize - strlen(nextbuf));
+                }
+            }
+        }
+        strncat(nextbuf, pwdbuf + pos[1] + 1, bufsize - strlen(nextbuf));
+    }
+clean:
+    free(loginbuf);
+    free(pwdbuf);
+
+//    printf("newpwd: %s\t%d\n", nextbuf, strlen(nextbuf));
+    return nextbuf;
+}
+
+// reverse the given null-terminated string in place
+void inplace_reverse(char * str)
+{
+    if (str)
+    {
+        char * end = str + strlen(str) - 1;
+        
+        // swap the values in the two given variables
+        // XXX: fails when a and b refer to same memory location
+#   define XOR_SWAP(a,b) do\
+{\
+a ^= b;\
+b ^= a;\
+a ^= b;\
+} while (0)
+        
+        // walk inwards from both ends of the string,
+        // swapping until we get to the middle
+        while (str < end)
+        {
+            XOR_SWAP(*str, *end);
+            str++;
+            end--;
+        }
+#   undef XOR_SWAP
+    }
+}
+
+
 void hydra_completed_pair() {
   __fck = write(intern_socket, "N", 1);
   pair[0] = 0;
