@@ -308,8 +308,6 @@ int prefer_ipv6 = 0, conwait = 0, loop_cnt = 0, fck = 0, options = 0, killed = 0
 int child_head_no = -1, child_socket;
 int total_redo_count = 0;
 
-//char **alloclist = NULL;
-//int alloccount = 0;
 char *subpass = NULL;
 
 // moved for restore feature
@@ -1315,8 +1313,7 @@ int hydra_spawn_head(int head_no, int target_no) {
         free(login_ptr);
       if (hydra_options.passfile != NULL)
         free(pass_ptr);
-//        for (int i = 0; i < alloccount; i ++) free(alloclist[i]);
-//        free(alloclist);
+        
       if (hydra_options.colonfile != NULL && hydra_options.colonfile != empty_login)
         free(csv_ptr);
       //    we must keep servers_ptr for cmdlinetarget to work
@@ -3389,12 +3386,58 @@ int main(int argc, char *argv[]) {
           exit(-1);
         }
         pass_ptr = malloc(hydra_brains.sizepass + hydra_brains.countpass + 8);
-//          alloclist = (char **)malloc(sizeof(char *) * hydra_brains.countpass);
           
         if (pass_ptr == NULL)
           bail("Could not allocate enough memory for password file data");
         memset(pass_ptr, 0, hydra_brains.sizepass + hydra_brains.countpass + 8);
         fill_mem(pass_ptr, pfp, 0);
+        // support a->z mode
+          char *cur = pass_ptr, *sub_ptr = NULL, *cur_sub_ptr = NULL;
+          int curlen = 0, newcountpass = 0, subsize = 0, subsizetotal = 0;
+          for (int i=0; i<hydra_brains.countpass; i++) {
+              // first scan
+              newcountpass += hydra_password_rep_count(cur);
+              hydra_brains.sizepass += newcountpass * strlen(cur);
+//              printf("newcountpass: %d, cur: %s\n", newcountpass, cur);
+              cur += strlen(cur) + 1;
+          }
+          cur = pass_ptr;
+          sub_ptr = (char *)malloc(hydra_brains.sizepass + newcountpass + 8);
+          if (sub_ptr == NULL) {
+              bail("Could not allocate enough memory for password file data");
+          }
+          cur_sub_ptr = sub_ptr;
+          for (int i=0; i<hydra_brains.countpass; i++) {
+              // second scan
+              subsize = hydra_password_rep_gen(cur, cur_sub_ptr);
+              if (subsize > 0) {
+                  cur_sub_ptr += subsize;
+                  subsizetotal += subsize;
+              }
+              cur += strlen(cur) + 1;
+          }
+          
+          hydra_brains.countpass += newcountpass;
+          hydra_brains.sizepass += subsizetotal;
+          pass_ptr = (char *)realloc(pass_ptr, hydra_brains.sizepass + hydra_brains.countpass + 8);
+          if (pass_ptr == NULL)
+              bail("Could not allocate enough memory for password file data");
+          // copy buffer
+          cur = pass_ptr;
+          while (strlen(cur) > 0) {
+              cur += strlen(cur) + 1;
+          }
+        
+          memcpy(cur, sub_ptr, subsizetotal);
+          
+          cur = pass_ptr;
+          while (strlen(cur) > 0) {
+//              printf("cur: %s\n", cur);
+              cur += strlen(cur) + 1;
+          }
+          
+          
+          free(sub_ptr);
       } else {
         if (hydra_options.pass != NULL) {
           pass_ptr = hydra_options.pass;

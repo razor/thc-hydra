@@ -712,10 +712,10 @@ char *hydra_get_next_password_sub(char *nextbuf, char *login, char *pwd) {
             inplace_reverse(loginbuf);
             strncat(nextbuf, loginbuf, bufsize - strlen(nextbuf));
         } else {
-            if (tok == strnstr(tok, "user:", strlen(tok))) {
+            if (tok == strstr(tok, "user:")) {
                 tok += 5;
                 tok1 = tok + 1;
-                if (tok1 == strnstr(tok1, "=>", strlen(tok1))) {
+                if (tok1 == strstr(tok1, "=>")) {
 //                    printf("replace detected.\n");
                     replace[0] = *tok;
                     replace[1] = *(tok+8);
@@ -733,7 +733,7 @@ clean:
     free(loginbuf);
     free(pwdbuf);
 
-//    printf("newpwd: %s\t%d\n", nextbuf, strlen(nextbuf));
+//    printf("newpwd: %s\t%d\tlogin:%s\tpwd:%s\n", nextbuf, strlen(nextbuf), login, pwd);
     return nextbuf;
 }
 
@@ -787,6 +787,45 @@ void hydra_completed_pair_skip() {
   login = hydra_get_next_login();
   __fck = write(intern_socket, login, strlen(login) + 1);
   pair[0] = 0;
+}
+
+
+int hydra_password_rep_gen(char *pwd, char *buf)
+{
+    
+    char s, e, c, *tok = NULL, *cur = NULL;
+    int count = hydra_password_rep_count(pwd);
+    int sizerep = 0;
+    
+    if (count == 0) return 0;
+    else {
+        char *tmp = (char *)malloc(strlen(pwd) + 1);
+        strncpy(tmp, pwd, strlen(pwd) + 1);
+        tok = strstr(tmp, "->");
+        s = *(tok - 1);
+        e = *(tok + 2);
+        *(tok - 2) = 0;
+        tok += 4;
+        cur = buf;
+        for (c=s; c<=e; c++) {
+            sizerep = sprintf(cur, "%s%c%s", tmp, c, tok);
+//            printf("buf: %s\n", cur);
+            cur += sizerep + 1;
+        }
+        return cur - buf;
+    }
+}
+
+int hydra_password_rep_count(char *pwd)
+{
+    char *tok = NULL;
+    if (tok = strstr(pwd, "->")) {
+        if (tok - 2 > pwd && strlen(tok) >= 4) {
+            if (*(tok - 2) == '%' && *(tok + 3) == '%')
+                return *(tok + 2) - *(tok - 1) + 1;
+        }
+    }
+    return 0;
 }
 
 /*

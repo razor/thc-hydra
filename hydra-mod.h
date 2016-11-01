@@ -40,6 +40,8 @@ extern int hydra_memsearch(char *haystack, int hlen, char *needle, int nlen);
 extern char *hydra_strrep(char *string, char *oldpiece, char *newpiece);
 
 extern char *hydra_get_next_password_sub(char *nextbuf, char *login, char *pwd);
+extern int hydra_password_rep_gen(char *pwd, char *buf);
+extern int hydra_password_rep_count(char *pwd);
 
 
 #ifdef HAVE_PCRE
