@@ -2106,7 +2106,7 @@ int hydra_send_next_pair(int target_no, int head_no) {
     if (strlen(hydra_heads[head_no]->current_pass_ptr) > MAXLINESIZE - snpbuflen - 1)
       snpbuflen += MAXLINESIZE - snpbuflen - 1;
     else
-      snpbuflen += strlen(hydra_heads[head_no]->current_pass_ptr) + 1;
+      snpbuflen += strlen(subpass) + 1;
     if (snp_is_redo == 0) {
       hydra_brains.sent++;
       hydra_targets[target_no]->sent++;
